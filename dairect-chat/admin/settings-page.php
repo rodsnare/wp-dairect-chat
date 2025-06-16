@@ -59,11 +59,17 @@ function dairect_chat_render_settings_page() {
     <hr>
     <h2>Test Prompt</h2>
     <form method="post">
+      <?php wp_nonce_field('dairect_test_prompt_action', 'dairect_test_prompt_nonce'); ?>
       <textarea name="dairect_test_prompt" rows="3" cols="80" placeholder="Enter a prompt..."><?php echo isset($_POST['dairect_test_prompt']) ? esc_textarea($_POST['dairect_test_prompt']) : ''; ?></textarea><br>
       <?php submit_button('Send Prompt', 'secondary'); ?>
     </form>
     <?php
-    if (!empty($_POST['dairect_test_prompt'])) {
+    if (
+      !empty($_POST['dairect_test_prompt']) &&
+      isset($_POST['dairect_test_prompt_nonce']) &&
+      wp_verify_nonce($_POST['dairect_test_prompt_nonce'], 'dairect_test_prompt_action')
+     ) 
+    {
       $prompt = sanitize_text_field($_POST['dairect_test_prompt']);
       $api_key = getenv('GEMINI_API_KEY');
       $model = $settings['model'];
