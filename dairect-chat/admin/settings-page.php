@@ -14,10 +14,10 @@ function dairect_chat_render_settings_page() {
           <th scope="row"><?php echo esc_html(ucfirst($key)); ?></th>
           <td>
             <?php if ($key === 'system_instruction'): ?>
-              <textarea name="dairect_chat_settings[<?php echo $key; ?>]" rows="3" cols="60"><?php echo esc_textarea($val); ?></textarea>
+              <textarea name="dairect_chat_settings[<?php echo esc_attr($key); ?>]" rows="3" cols="60"><?php echo esc_textarea($val); ?></textarea>
             <?php else: ?>
               <input type="<?php echo is_numeric($val) ? 'number' : 'text'; ?>"
-                name="dairect_chat_settings[<?php echo $key; ?>]"
+                name="dairect_chat_settings[<?php echo esc_attr($key); ?>]"
                 value="<?php echo esc_attr($val); ?>" step="any" />
             <?php endif; ?>
           </td>
