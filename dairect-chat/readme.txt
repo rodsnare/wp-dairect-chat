@@ -36,7 +36,7 @@ dAIrect Chat enables you to embed a Gemini-powered chatbot into any page or post
 No. Session memory is stored only in PHP sessions — no logs are stored in WordPress or external databases.
 
 = Can I use OpenAI or Claude instead? =
-Not yet, but future versions may support multiple providers.
+Not yet, but future versions will support multiple providers.
 
 == Screenshots ==
 
