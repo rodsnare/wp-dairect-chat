@@ -1,10 +1,16 @@
 <?php
 /*
 Plugin Name: dAIrect Chat
-Description: Gemini-powered multi-turn AI chat plugin with admin settings and frontend chat widget.
-Version: 1.0.8
+Plugin URI: https://github.com/rodsnare/wp-dairect-chat
+Description: A lightweight Gemini-powered chat widget for WordPress with multi-turn conversation support.
+Version: 1.1.2
 Author: Rod Snare
+Author URI: https://github.com/rodsnare
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: dairect-chat
 */
+
 
 defined('ABSPATH') || exit;
 
