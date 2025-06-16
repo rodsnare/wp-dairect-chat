@@ -70,7 +70,7 @@ function dairect_chat_render_settings_page() {
       wp_verify_nonce($_POST['dairect_test_prompt_nonce'], 'dairect_test_prompt_action')
      ) 
     {
-      $prompt = sanitize_text_field($_POST['dairect_test_prompt']);
+      $prompt = sanitize_text_field(wp_unslash($_POST['dairect_test_prompt']));
       $api_key = getenv('GEMINI_API_KEY');
       $model = $settings['model'];
 
