@@ -1,6 +1,36 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+function dairect_chat_sanitize_settings($settings) {
+  $sanitized = [];
+
+  foreach ($settings as $key => $value) {
+    switch ($key) {
+      case 'temperature':
+      case 'topP':
+        $sanitized[$key] = floatval($value);
+        break;
+
+      case 'maxTokens':
+      case 'timeout':
+        $sanitized[$key] = intval($value);
+        break;
+
+      case 'system_instruction':
+        $sanitized[$key] = sanitize_textarea_field($value);
+        break;
+
+      case 'model':
+      default:
+        $sanitized[$key] = sanitize_text_field($value);
+        break;
+    }
+  }
+
+  return $sanitized;
+}
+
+
 function dairect_chat_render_settings_page() {
   $settings = dairect_chat_get_settings();
   ?>
@@ -74,5 +104,11 @@ function dairect_chat_render_settings_page() {
   echo '</div>';
 }
 add_action('admin_init', function() {
-  register_setting('dairect_chat_settings', 'dairect_chat_settings');
+  register_setting(
+    'dairect_chat_settings',
+    'dairect_chat_settings',
+    [
+      'sanitize_callback' => 'dairect_chat_sanitize_settings'
+    ]
+  );
 });
