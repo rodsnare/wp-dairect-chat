@@ -11,7 +11,7 @@ function dairect_chat_render_settings_page() {
       <table class="form-table">
         <?php foreach ($settings as $key => $val): ?>
         <tr>
-          <th scope="row"><?php echo ucfirst($key); ?></th>
+          <th scope="row"><?php echo esc_html(ucfirst($key)); ?></th>
           <td>
             <?php if ($key === 'system_instruction'): ?>
               <textarea name="dairect_chat_settings[<?php echo $key; ?>]" rows="3" cols="60"><?php echo esc_textarea($val); ?></textarea>
