@@ -3,7 +3,7 @@ Contributors: rodsnare
 Tags: ai, chatbot, gemini, widget, llm  
 Requires at least: 6.0  
 Tested up to: 6.8  
-Stable tag: 1.1.2  
+Stable tag: 1.1.3  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html 
 
@@ -44,14 +44,14 @@ Not yet, but future versions will support multiple providers.
 
 == Changelog ==
 
-= 1.1.2 =
+= 1.1.3 =
 * First public GitHub release
 * System instruction injection and admin tester support
 * Stable shortcode and styling foundation
 
 == Upgrade Notice ==
 
-1.1.2 introduces session memory, shortcode embed, and admin config — recommended for all users.
+1.1.3 introduces session memory, shortcode embed, and admin config — recommended for all users.
 
 == License ==
 
