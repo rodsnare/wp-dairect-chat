@@ -9,7 +9,8 @@ add_action('init', function() {
 function dairect_chat_handle_ajax() {
   check_ajax_referer('dairect_chat_nonce', 'nonce');
 
-  $message = sanitize_text_field($_POST['message'] ?? '');
+  $message = sanitize_text_field(wp_unslash($_POST['message'] ?? ''));
+
   if (!$message) wp_send_json_error('No message provided');
 
   $settings = dairect_chat_get_settings();
