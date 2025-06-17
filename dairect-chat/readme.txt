@@ -1,16 +1,15 @@
 === dAIrect Chat ===
 Contributors: rodsnare  
-Tags: chatbot, ai, gemini, conversational, voice, shortcode, wordpress plugin  
+Tags: ai, chatbot, gemini, widget, llm  
 Requires at least: 6.0  
 Tested up to: 6.8  
 Stable tag: 1.1.2  
 License: MIT  
 License URI: https://opensource.org/licenses/MIT  
 
-dAIrect Chat is a lightweight, configurable conversational AI widget for WordPress, powered by Google Gemini. It supports multi-turn conversation, system instruction customization, and voice input.
+dAIrect Chat is a lightweight Gemini AI chat widget for WordPress with multi-turn memory, voice input, and custom system instructions.
 
 == Description ==
-
 dAIrect Chat enables you to embed a Gemini-powered chatbot into any page or post using a shortcode. Designed for simplicity, flexibility, and fast response, it is perfect for customer support, creative interaction, or building your own branded assistant.
 
 = Features include: =
