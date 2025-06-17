@@ -4,8 +4,8 @@ Tags: ai, chatbot, gemini, widget, llm
 Requires at least: 6.0  
 Tested up to: 6.8  
 Stable tag: 1.1.2  
-License: MIT  
-License URI: https://opensource.org/licenses/MIT  
+License: GPLv2 or later  
+License URI: https://www.gnu.org/licenses/gpl-2.0.html 
 
 dAIrect Chat is a lightweight Gemini AI chat widget for WordPress with multi-turn memory, voice input, and custom system instructions.
 
@@ -54,5 +54,9 @@ Not yet, but future versions will support multiple providers.
 1.1.2 introduces session memory, shortcode embed, and admin config — recommended for all users.
 
 == License ==
+
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
 
 MIT — Fork freely, build professionally.
