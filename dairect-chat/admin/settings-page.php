@@ -1,6 +1,32 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+function dairect_chat_sanitize_settings($settings) {
+  $sanitized = [];
+
+  foreach ($settings as $key => $value) {
+    switch ($key) {
+      case 'temperature':
+      case 'topP':
+        $sanitized[$key] = floatval($value);
+        break;
+      case 'maxTokens':
+      case 'timeout':
+        $sanitized[$key] = intval($value);
+        break;
+      case 'system_instruction':
+        $sanitized[$key] = sanitize_textarea_field($value);
+        break;
+      case 'model':
+      default:
+        $sanitized[$key] = sanitize_text_field($value);
+        break;
+    }
+  }
+
+  return $sanitized;
+}
+
 function dairect_chat_render_settings_page() {
   $settings = dairect_chat_get_settings();
   ?>
@@ -11,13 +37,13 @@ function dairect_chat_render_settings_page() {
       <table class="form-table">
         <?php foreach ($settings as $key => $val): ?>
         <tr>
-          <th scope="row"><?php echo ucfirst($key); ?></th>
+          <th scope="row"><?php echo esc_html(ucfirst($key)); ?></th>
           <td>
             <?php if ($key === 'system_instruction'): ?>
-              <textarea name="dairect_chat_settings[<?php echo $key; ?>]" rows="3" cols="60"><?php echo esc_textarea($val); ?></textarea>
+              <textarea name="dairect_chat_settings[<?php echo esc_attr($key); ?>]" rows="3" cols="60"><?php echo esc_textarea($val); ?></textarea>
             <?php else: ?>
               <input type="<?php echo is_numeric($val) ? 'number' : 'text'; ?>"
-                name="dairect_chat_settings[<?php echo $key; ?>]"
+                name="dairect_chat_settings[<?php echo esc_attr($key); ?>]"
                 value="<?php echo esc_attr($val); ?>" step="any" />
             <?php endif; ?>
           </td>
@@ -26,15 +52,41 @@ function dairect_chat_render_settings_page() {
       </table>
       <?php submit_button(); ?>
     </form>
+
     <hr>
     <h2>Test Prompt</h2>
     <form method="post">
-      <textarea name="dairect_test_prompt" rows="3" cols="80" placeholder="Enter a prompt..."><?php echo isset($_POST['dairect_test_prompt']) ? esc_textarea($_POST['dairect_test_prompt']) : ''; ?></textarea><br>
+      <?php wp_nonce_field('dairect_test_prompt_action', 'dairect_test_prompt_nonce'); ?>
+    <?php 
+      $prompt_input = '';
+      if (
+        isset($_POST['dairect_test_prompt_nonce']) &&
+        wp_verify_nonce(
+          sanitize_text_field(wp_unslash($_POST['dairect_test_prompt_nonce'])),
+          'dairect_test_prompt_action'
+        )
+         &&
+        isset($_POST['dairect_test_prompt'])
+      ) {
+        $prompt_input = sanitize_text_field(wp_unslash($_POST['dairect_test_prompt']));
+
+      }
+    ?>
+      <textarea name="dairect_test_prompt" rows="3" cols="80" placeholder="Enter a prompt..."><?php echo esc_textarea($prompt_input); ?></textarea><br>
+
       <?php submit_button('Send Prompt', 'secondary'); ?>
     </form>
+
     <?php
-    if (!empty($_POST['dairect_test_prompt'])) {
-      $prompt = sanitize_text_field($_POST['dairect_test_prompt']);
+    if (
+      !empty($_POST['dairect_test_prompt']) &&
+      isset($_POST['dairect_test_prompt_nonce']) &&
+      wp_verify_nonce(
+        sanitize_text_field(wp_unslash($_POST['dairect_test_prompt_nonce'])),
+        'dairect_test_prompt_action'
+      )      
+    ) {
+      $prompt = sanitize_text_field(wp_unslash($_POST['dairect_test_prompt']));
       $api_key = getenv('GEMINI_API_KEY');
       $model = $settings['model'];
 
@@ -68,11 +120,18 @@ function dairect_chat_render_settings_page() {
       echo '<div style="margin-top:1em;padding:1em;border:1px solid #ccc;background:#fff;"><strong>Response:</strong><br>';
       echo is_wp_error($response)
         ? 'API Error: ' . esc_html($response->get_error_message())
-        : esc_html(json_decode(wp_remote_retrieve_body($response), true)['candidates'][0]['content']['parts'][0]['text'] ?? 'No response.');
+        : esc_html($response_data = json_decode(wp_remote_retrieve_body($response), true)['candidates'][0]['content']['parts'][0]['text'] ?? 'No response.');
       echo '</div>';
     }
-  echo '</div>';
+    echo '</div>';
 }
+
 add_action('admin_init', function() {
-  register_setting('dairect_chat_settings', 'dairect_chat_settings');
+  register_setting(
+    'dairect_chat_settings',
+    'dairect_chat_settings',
+    [
+      'sanitize_callback' => 'dairect_chat_sanitize_settings'
+    ]
+  );
 });
