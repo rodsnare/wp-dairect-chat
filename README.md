@@ -1,6 +1,6 @@
 # dAIrect Chat
 
-**Version:** 1.1.3  
+**Version:** 1.1.4  
 **License:** MIT/GPLv2  
 **Author:** Rod Snare  
 **Tags:** WordPress, Chatbot, Gemini, AI, Widget, Plugin
