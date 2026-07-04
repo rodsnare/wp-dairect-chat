@@ -73,6 +73,7 @@ if (!function_exists('dairect_chat_render_settings_page')) {
             const formData = new FormData();
             formData.append('action', 'dairect_chat_test');
             formData.append('prompt', prompt);
+            formData.append('nonce', '<?php echo esc_js( wp_create_nonce( 'dairect_chat_nonce' ) ); ?>');
 
             const res = await fetch(ajaxUrl, {
               method: 'POST',
@@ -89,9 +90,12 @@ if (!function_exists('dairect_chat_render_settings_page')) {
             console.log('[dAIrect] Response data:', data);
 
             if (data.success) {
-              responseDiv.textContent = data.data || '(Empty response)';
+              // Extract reply text from response - check message first, then data.reply
+              const replyText = data.message || (data.data && data.data.reply) || (data.data && typeof data.data === 'string' ? data.data : '') || '';
+              responseDiv.textContent = replyText || '(Empty response)';
             } else {
-              responseDiv.textContent = 'Error: ' + (data.data || 'Unknown error');
+              const errorMsg = data.message || (data.data && typeof data.data === 'string' ? data.data : '') || 'Unknown error';
+              responseDiv.textContent = 'Error: ' + errorMsg;
             }
 
           } catch (err) {

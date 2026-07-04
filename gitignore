@@ -5,6 +5,9 @@ Thumbs.db
 # Ignore archives
 *.zip
 
+#Ignore notes
+*.txt
+
 # Ignore editor folders
 .vscode/
 .idea/

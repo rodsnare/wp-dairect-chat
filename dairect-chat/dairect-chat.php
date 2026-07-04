@@ -15,6 +15,18 @@ Requires at least: 6.0
 
 if (!defined('ABSPATH')) exit;
 
+register_activation_hook( __FILE__, function () {
+    if ( function_exists( 'dairect_schedule_trace_purge' ) ) {
+        dairect_schedule_trace_purge();
+    }
+} );
+
+register_deactivation_hook( __FILE__, function () {
+    if ( function_exists( 'dairect_unschedule_trace_purge' ) ) {
+        dairect_unschedule_trace_purge();
+    }
+} );
+
 /**
  * dAIrect Chat – ordered bootstrap
  * - Defines a stable version constant and legacy $plugin_version.
@@ -61,49 +73,30 @@ if (file_exists($getter)) {
 // ==================================
 // 2) Admin settings page (uses getter)
 // ==================================
-//if (is_admin()) {
-//    $admin_settings = $admin_dir . 'settings-page.php';
-//    if (file_exists($admin_settings)) {
-//        require_once $admin_settings;
-//    }
-//}
-
-if (is_admin()) {
-  // Resolve directories from plugin root (no side effects elsewhere)
-  $plugin_root = plugin_dir_path(__FILE__);
-  $admin_dir   = $plugin_root . 'admin/';     // you already use this
-  $inc_dir     = $plugin_root . 'includes/';  // new: for registrar files
-
-  // 1) Register the original/core settings fields (group/page the page renders)
-  $core_settings = $inc_dir . 'admin-core-settings.php';
-  if (file_exists($core_settings)) {
-      require_once $core_settings;
-  }
-
-  // 2) Register the Prompt Tracing checkbox + first-enable table init
-  $trace_settings = $inc_dir . 'admin-tracing-settings.php';
-  if (file_exists($trace_settings)) {
-      require_once $trace_settings;
-  }
-
-  // 3) Render the admin page (kept minimal; just Settings API render + Prompt Test)
-  $admin_settings_page = $admin_dir . 'settings-page.php';
-  if (file_exists($admin_settings_page)) {
-      require_once $admin_settings_page;
-  }
+if ( is_admin() ) {
+    require_once $includes_dir . 'admin-core-settings.php';
+    require_once $includes_dir . 'admin-tracing-settings.php';
+    require_once $includes_dir . 'admin-phoenix-settings.php';
+    require_once $admin_dir    . 'settings-page.php';
 }
 
 
-// ==========================================================
-// 3) Tracing admin (OPTIONAL) – after getter + settings page
-// ==========================================================
-$trace_admin = $includes_dir . 'admin-tracing-settings.php';
-if (file_exists($trace_admin)) {
-    require_once $trace_admin;
+// ================================================
+// 3) Tracing core functions (needed by API handler)
+// ================================================
+$tracing = $includes_dir . 'tracing.php';
+if (file_exists($tracing)) {
+    require_once $tracing;
+}
+
+// Phoenix observability (optional, best-effort)
+$phoenix = $includes_dir . 'phoenix-observer.php';
+if (file_exists($phoenix)) {
+    require_once $phoenix;
 }
 
 // ================================================
-// 4) Public/AJAX handlers & other runtime includes
+// 5) Public/AJAX handlers & other runtime includes
 // ================================================
 $api_handler = $includes_dir . 'api-handler.php';
 if (file_exists($api_handler)) {
@@ -128,15 +121,73 @@ add_shortcode('dairect_chat_widget', function() {
   ob_start(); ?>
   <div id="dairect-chat-widget">
     <div id="chat-messages"></div>
-    <input type="text" id="chat-input" placeholder="Type a message..." />
-    <div style="margin-top: 10px;">
-      <button id="chat-send">Send</button>
-      <button id="chat-clear">Clear Chat</button>
-      <button id="chat-mic" title="Click to speak">🎤</button>
+    <div class="dairect-input-wrap">
+      <input type="text" id="chat-input" placeholder="<?php echo esc_attr__( 'Type a message…', 'dairect-chat' ); ?>" autocomplete="off" />
+      <button id="chat-mic" class="dairect-mic-btn" title="<?php echo esc_attr__( 'Click to speak', 'dairect-chat' ); ?>" aria-label="<?php echo esc_attr__( 'Voice input', 'dairect-chat' ); ?>">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+    </div>
+    <div style="margin-top: 8px;">
+      <button id="chat-send"><?php echo esc_html__( 'Send', 'dairect-chat' ); ?></button>
+      <button id="chat-clear"><?php echo esc_html__( 'Clear Chat', 'dairect-chat' ); ?></button>
     </div>
   </div>
   <?php return ob_get_clean();
 });
+
+add_action( 'wp_footer', function () {
+    $settings = dairect_chat_get_settings();
+    if ( empty( $settings['floating_mode_enabled'] ) || $settings['floating_mode_enabled'] !== '1' ) {
+        return;
+    }
+    $image_url    = ! empty( $settings['button_image_url'] ) ? esc_url( $settings['button_image_url'] ) : '';
+    $drawer_width = isset( $settings['drawer_width'] ) ? max( 280, min( 800, intval( $settings['drawer_width'] ) ) ) : 380;
+    $drawer_title = ! empty( $settings['drawer_title'] ) ? $settings['drawer_title'] : __( 'Chat', 'dairect-chat' );
+    ?>
+    <button id="dairect-float-btn"
+            aria-label="<?php echo esc_attr__( 'Open chat', 'dairect-chat' ); ?>"
+            aria-expanded="false">
+        <?php if ( $image_url ) : ?>
+            <img src="<?php echo esc_url( $image_url ); ?>"
+                 alt="<?php echo esc_attr__( 'Chat', 'dairect-chat' ); ?>" />
+        <?php else : ?>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="32" height="32" aria-hidden="true" focusable="false">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+        <?php endif; ?>
+    </button>
+    <div id="dairect-float-drawer"
+         style="width:<?php echo esc_attr( (string) $drawer_width ); ?>px;"
+         role="dialog"
+         aria-label="<?php echo esc_attr( $drawer_title ); ?>"
+         aria-modal="false">
+        <div id="dairect-float-header">
+            <span><?php echo esc_html( $drawer_title ); ?></span>
+            <button id="dairect-float-close"
+                    aria-label="<?php echo esc_attr__( 'Close chat', 'dairect-chat' ); ?>">&#10005;</button>
+        </div>
+        <div id="dairect-float-messages"></div>
+        <div id="dairect-float-input-area">
+            <div class="dairect-input-wrap">
+                <input type="text"
+                       id="dairect-float-input"
+                       placeholder="<?php echo esc_attr__( 'Type a message…', 'dairect-chat' ); ?>"
+                       autocomplete="off" />
+                <button id="dairect-float-mic"
+                        class="dairect-mic-btn"
+                        title="<?php echo esc_attr__( 'Click to speak', 'dairect-chat' ); ?>"
+                        aria-label="<?php echo esc_attr__( 'Voice input', 'dairect-chat' ); ?>">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </button>
+            </div>
+            <div class="dairect-actions">
+                <button id="dairect-float-send"><?php echo esc_html__( 'Send', 'dairect-chat' ); ?></button>
+                <button id="dairect-float-clear"><?php echo esc_html__( 'Clear', 'dairect-chat' ); ?></button>
+            </div>
+        </div>
+    </div>
+    <?php
+} );
 
 add_action('wp_enqueue_scripts', function() use ($plugin_version) {
   wp_enqueue_script(
@@ -152,22 +203,16 @@ add_action('wp_enqueue_scripts', function() use ($plugin_version) {
     'nonce' => wp_create_nonce('dairect_chat_nonce')
   ]);
 
-// --- Minimal bootstrap to register REST routes (don’t change other code) ---
-add_action('plugins_loaded', function () {
-  // Adjust the path if your file lives elsewhere.
-  $api_file = __DIR__ . '/includes/api-handler.php';
-  if (file_exists($api_file)) {
-      require_once $api_file;
-  } else {
-      error_log('[DAIRECT] includes/api-handler.php not found');
-  }
-});
-
-
   wp_enqueue_style(
     'dairect-chat-style-css',
     plugin_dir_url(__FILE__) . 'public/chat-widget.css',
     [],
     $plugin_version
   );
+
+  // Dynamic accent color — overrides the CSS variable default
+  $s      = dairect_chat_get_settings();
+  $accent = ( ! empty( $s['accent_color'] ) && preg_match( '/^#[0-9a-f]{6}$/i', $s['accent_color'] ) )
+              ? $s['accent_color'] : '#6366f1';
+  wp_add_inline_style( 'dairect-chat-style-css', ':root{--dairect-accent:' . esc_attr( $accent ) . ';}' );
 });

@@ -108,7 +108,10 @@ add_action('admin_init', function () {
     function () use ($get) {
       $val = (string) $get('model_name', '');
       echo '<input type="text" style="width:24rem" ' .
-           'name="dairect_chat_settings[model_name]" value="' . esc_attr($val) . '"/>';
+           'name="dairect_chat_settings[model_name]" value="' . esc_attr($val) . '" placeholder="gemini-3.1-flash-lite"/>';
+      echo '<p class="description">' .
+           esc_html__('Examples: gemini-3.1-flash-lite (current), gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite — enter without the "models/" prefix.', 'dairect-chat') .
+           '</p>';
     },
     $page,
     'dairect_core_section'
@@ -126,27 +129,269 @@ add_action('admin_init', function () {
   //  $page,
   //  'dairect_core_section'
   //);
+
+  // ── Widget Display section ──────────────────────────────────────────────────
+  add_settings_section(
+    'dairect_widget_section',
+    __( 'Widget Display', 'dairect-chat' ),
+    function () {
+      echo '<p class="description">' .
+           esc_html__( 'Control how and where the chat widget appears. Floating mode adds a persistent button on every page; the shortcode [dairect_chat_widget] can be used simultaneously for a dedicated chat page.', 'dairect-chat' ) .
+           '</p>';
+    },
+    $page
+  );
+
+  // Drawer title
+  add_settings_field(
+    'drawer_title',
+    __( 'Chat Drawer Title', 'dairect-chat' ),
+    function () use ( $get ) {
+      $val = (string) $get( 'drawer_title', 'Chat' );
+      echo '<input type="text" style="width:20rem;" ' .
+           'name="dairect_chat_settings[drawer_title]" value="' . esc_attr( $val ) . '" ' .
+           'placeholder="Chat" />';
+      echo '<p class="description">' . esc_html__( 'Label shown in the floating chat drawer header. Default: Chat.', 'dairect-chat' ) . '</p>';
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Floating mode toggle
+  add_settings_field(
+    'floating_mode_enabled',
+    __( 'Floating Mode', 'dairect-chat' ),
+    function () use ( $get ) {
+      $val = (string) $get( 'floating_mode_enabled', '0' );
+      ?>
+      <label>
+        <input type="checkbox"
+               name="dairect_chat_settings[floating_mode_enabled]"
+               value="1" <?php checked( $val, '1' ); ?> />
+        <?php echo esc_html__( 'Show a floating chat button on every page (site-wide).', 'dairect-chat' ); ?>
+      </label>
+      <?php
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Button image (Media Library picker)
+  add_settings_field(
+    'button_image_url',
+    __( 'Button Image', 'dairect-chat' ),
+    function () use ( $get ) {
+      $url = esc_url( (string) $get( 'button_image_url', '' ) );
+      ?>
+      <input type="text"
+             id="dairect-button-image-url"
+             name="dairect_chat_settings[button_image_url]"
+             value="<?php echo esc_attr( $url ); ?>"
+             style="width:24rem;"
+             placeholder="<?php echo esc_attr__( 'Leave blank to use default chat icon', 'dairect-chat' ); ?>" />
+      <button type="button" id="dairect-pick-image" class="button button-secondary" style="margin-left:6px;">
+        <?php echo esc_html__( 'Choose Image', 'dairect-chat' ); ?>
+      </button>
+      <button type="button" id="dairect-remove-image" class="button button-link" style="margin-left:4px;color:#d63638;">
+        <?php echo esc_html__( 'Remove', 'dairect-chat' ); ?>
+      </button>
+      <br/>
+      <?php if ( $url ) : ?>
+      <img id="dairect-button-image-preview"
+           src="<?php echo esc_url( $url ); ?>"
+           style="margin-top:8px;width:64px;height:64px;object-fit:cover;border-radius:50%;border:1px solid #ccc;" />
+      <?php else : ?>
+      <img id="dairect-button-image-preview"
+           src=""
+           style="display:none;margin-top:8px;width:64px;height:64px;object-fit:cover;border-radius:50%;border:1px solid #ccc;" />
+      <?php endif; ?>
+      <p class="description">
+        <?php echo esc_html__( 'Optional. Uses a default chat bubble icon if left blank.', 'dairect-chat' ); ?>
+      </p>
+      <?php
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Drawer width
+  add_settings_field(
+    'drawer_width',
+    __( 'Drawer Width (px)', 'dairect-chat' ),
+    function () use ( $get ) {
+      $val = (string) $get( 'drawer_width', '380' );
+      echo '<input type="number" min="280" max="800" style="width:6rem;" ' .
+           'name="dairect_chat_settings[drawer_width]" value="' . esc_attr( $val ) . '" />';
+      echo '<p class="description">' . esc_html__( '280–800px. Default: 380.', 'dairect-chat' ) . '</p>';
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Accent color
+  add_settings_field(
+    'accent_color',
+    __( 'Accent Color', 'dairect-chat' ),
+    function () use ( $get ) {
+      $raw = (string) $get( 'accent_color', '#6366f1' );
+      $val = preg_match( '/^#[0-9a-f]{6}$/i', $raw ) ? strtolower( $raw ) : '#6366f1';
+      ?>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <input type="color"
+               id="dairect-accent-picker"
+               value="<?php echo esc_attr( $val ); ?>"
+               style="height:36px;width:48px;padding:2px;cursor:pointer;border:1px solid #ccc;border-radius:4px;" />
+        <input type="text"
+               id="dairect-accent-text"
+               name="dairect_chat_settings[accent_color]"
+               value="<?php echo esc_attr( $val ); ?>"
+               placeholder="#6366f1"
+               maxlength="9"
+               style="width:7rem;font-family:monospace;" />
+        <div style="display:flex;gap:8px;align-items:center;margin-left:4px;">
+          <div id="dairect-accent-preview-btn"
+               style="width:36px;height:36px;border-radius:50%;background:<?php echo esc_attr( $val ); ?>;border:1px solid #ccc;flex-shrink:0;"></div>
+          <div id="dairect-accent-preview-bar"
+               style="width:120px;height:28px;border-radius:4px;background:<?php echo esc_attr( $val ); ?>;border:1px solid #ccc;"></div>
+          <span style="font-size:12px;color:#666;"><?php echo esc_html__( 'Button / title bar', 'dairect-chat' ); ?></span>
+        </div>
+      </div>
+      <p class="description" style="margin-top:6px;">
+        <?php echo esc_html__( 'Hex (#rrggbb) or rgb(r,g,b). Controls the floating button, drawer header, and Send button. Default: #6366f1.', 'dairect-chat' ); ?>
+      </p>
+      <?php
+    },
+    $page,
+    'dairect_widget_section'
+  );
 });
 
-/** Basic sanitizer that preserves existing keys and normalizes numeric fields */
-function dairect_chat_sanitize_core_settings($incoming) {
-  $prev = (array) get_option('dairect_chat_settings', []);
-  $in   = is_array($incoming) ? $incoming : [];
+add_action( 'admin_enqueue_scripts', function ( $hook_suffix ) {
+  if ( 'tools_page_dairect-chat' !== $hook_suffix ) return;
+  $js = <<<'COLORJS'
+document.addEventListener('DOMContentLoaded', function() {
+    var picker  = document.getElementById('dairect-accent-picker');
+    var text    = document.getElementById('dairect-accent-text');
+    var prevBtn = document.getElementById('dairect-accent-preview-btn');
+    var prevBar = document.getElementById('dairect-accent-preview-bar');
+    if (!picker || !text) return;
 
-  $out = array_merge($prev, $in);
+    function rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(function(n) {
+            return ('0' + parseInt(n, 10).toString(16)).slice(-2);
+        }).join('');
+    }
 
-  // Normalize numerics
-  foreach (['temperature','top_p'] as $k) {
-    if (isset($out[$k])) $out[$k] = (string) floatval($out[$k]);
-  }
-  foreach (['max_tokens','timeout_ms'] as $k) {
-    if (isset($out[$k])) $out[$k] = (string) intval($out[$k]);
-  }
+    function parseColor(val) {
+        val = val.trim();
+        if (/^#[0-9a-f]{6}$/i.test(val)) return val.toLowerCase();
+        if (/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.test(val)) {
+            var c = val.slice(1);
+            return '#' + c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+        }
+        var m = val.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+        if (m) return rgbToHex(m[1], m[2], m[3]);
+        return null;
+    }
 
-  // Strings
-  foreach (['system_instructions','model_name','api_key'] as $k) {
-    if (isset($out[$k])) $out[$k] = (string) $out[$k];
-  }
+    function applyColor(hex) {
+        picker.value = hex;
+        text.value   = hex;
+        if (prevBtn) prevBtn.style.background = hex;
+        if (prevBar) prevBar.style.background = hex;
+    }
 
-  return $out;
+    picker.addEventListener('input', function() {
+        applyColor(picker.value);
+    });
+
+    text.addEventListener('input', function() {
+        var hex = parseColor(text.value);
+        if (hex) {
+            picker.value = hex;
+            if (prevBtn) prevBtn.style.background = hex;
+            if (prevBar) prevBar.style.background = hex;
+        }
+    });
+
+    text.addEventListener('blur', function() {
+        var hex = parseColor(text.value);
+        applyColor(hex || picker.value);
+    });
+});
+COLORJS;
+  wp_add_inline_script( 'jquery', $js );
+} );
+
+/**
+ * Single canonical sanitizer for all dairect_chat_settings fields.
+ * Handles core fields + tracing flag so only one register_setting() is needed.
+ */
+function dairect_chat_sanitize_core_settings( $incoming ) {
+    $prev = (array) get_option( 'dairect_chat_settings', array() );
+    $in   = is_array( $incoming ) ? $incoming : array();
+    $out  = array_merge( $prev, $in );
+
+    // Numeric floats
+    foreach ( array( 'temperature', 'top_p' ) as $k ) {
+        if ( isset( $out[ $k ] ) ) {
+            $out[ $k ] = (string) floatval( $out[ $k ] );
+        }
+    }
+
+    // Numeric ints
+    foreach ( array( 'max_tokens', 'timeout_ms' ) as $k ) {
+        if ( isset( $out[ $k ] ) ) {
+            $out[ $k ] = (string) intval( $out[ $k ] );
+        }
+    }
+
+    // Sanitized strings
+    foreach ( array( 'model_name', 'api_key' ) as $k ) {
+        if ( isset( $out[ $k ] ) ) {
+            $out[ $k ] = sanitize_text_field( wp_unslash( $out[ $k ] ) );
+        }
+    }
+    if ( isset( $out['system_instructions'] ) ) {
+        $out['system_instructions'] = sanitize_textarea_field( wp_unslash( $out['system_instructions'] ) );
+    }
+
+    // Tracing flag — coerce to '0'/'1'
+    $out['dairect_tracing_enabled'] = ! empty( $out['dairect_tracing_enabled'] ) ? '1' : '0';
+    if ( ! isset( $out['dairect_tracing_initialized'] ) ) {
+        $out['dairect_tracing_initialized'] = '0';
+    }
+
+    // Phoenix observability fields
+    $out['phoenix_enabled'] = ! empty( $out['phoenix_enabled'] ) ? '1' : '0';
+    if ( isset( $out['phoenix_project_name'] ) ) {
+        $out['phoenix_project_name'] = sanitize_text_field( wp_unslash( $out['phoenix_project_name'] ) );
+    }
+    if ( isset( $out['phoenix_collector_endpoint'] ) ) {
+        $out['phoenix_collector_endpoint'] = esc_url_raw( wp_unslash( $out['phoenix_collector_endpoint'] ) );
+    }
+
+    // Widget display fields
+    $out['floating_mode_enabled'] = ! empty( $out['floating_mode_enabled'] ) ? '1' : '0';
+    if ( isset( $out['drawer_title'] ) ) {
+        $out['drawer_title'] = sanitize_text_field( wp_unslash( $out['drawer_title'] ) );
+    }
+    if ( isset( $out['accent_color'] ) ) {
+        $c = sanitize_text_field( wp_unslash( $out['accent_color'] ) );
+        if ( preg_match( '/^#[0-9a-f]{6}$/i', $c ) ) {
+            $out['accent_color'] = strtolower( $c );
+        } elseif ( preg_match( '/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i', $c, $m ) ) {
+            $out['accent_color'] = '#' . strtolower( $m[1].$m[1].$m[2].$m[2].$m[3].$m[3] );
+        } else {
+            $out['accent_color'] = '#6366f1';
+        }
+    }
+    if ( isset( $out['button_image_url'] ) ) {
+        $out['button_image_url'] = esc_url_raw( wp_unslash( $out['button_image_url'] ) );
+    }
+    if ( isset( $out['drawer_width'] ) ) {
+        $out['drawer_width'] = (string) max( 280, min( 800, intval( $out['drawer_width'] ) ) );
+    }
+
+    return $out;
 }

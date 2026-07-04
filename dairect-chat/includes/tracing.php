@@ -3,11 +3,20 @@
  * dAIrect Chat - Tracing core (create table on first enable + safe logging)
  * - Table created ONLY when tracing flips from OFF -> ON
  * - All DB operations are best-effort and NEVER block chat flow
+ * - Rolling purge deletes records older than DAIRECT_TRACE_RETENTION_DAYS via WP cron
  */
 if (!defined('ABSPATH')) exit;
 
+define( 'DAIRECT_TRACE_RETENTION_DAYS', 7 );
+
 if (!function_exists('dairect_tracing_is_enabled')) {
   function dairect_tracing_is_enabled(): bool {
+    // Check in dairect_chat_settings array (where admin stores it)
+    $settings = get_option('dairect_chat_settings', []);
+    if (is_array($settings) && isset($settings['dairect_tracing_enabled'])) {
+      return $settings['dairect_tracing_enabled'] === '1';
+    }
+    // Fallback to separate option for backward compatibility
     return get_option('dairect_tracing_enabled', '0') === '1';
   }
 }
@@ -43,28 +52,12 @@ if (!function_exists('dairect_tracing_ensure_table')) {
       $exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table));
       return is_string($exists) && strtolower($exists) == strtolower($table);
     } catch (\Throwable $e) {
-      error_log('[dAIrect Chat] Failed to ensure trace table: ' . $e->getMessage());
+      dairect_debug_log( 'Failed to ensure trace table: ' . $e->getMessage() );
       return false;
     }
   }
 }
 
-if (!function_exists('dairect_tracing_on_toggle')) {
-  function dairect_tracing_on_toggle($old_value, $value, $option) {
-    if ($option !== 'dairect_tracing_enabled') return;
-    if ($old_value !== '1' && $value === '1') {
-      $initialized = get_option('dairect_tracing_initialized', '0') === '1';
-      if (!dairect_tracing_ensure_table()) {
-        error_log('[dAIrect Chat] Tracing enabled but trace table is unavailable.');
-        return;
-      }
-      if (!$initialized) {
-        update_option('dairect_tracing_initialized', '1', true);
-      }
-    }
-  }
-  add_action('update_option_dairect_tracing_enabled', 'dairect_tracing_on_toggle', 10, 3);
-}
 
 if (!function_exists('dairect_tracing_log')) {
   function dairect_tracing_log(array $row): void {
@@ -77,18 +70,64 @@ if (!function_exists('dairect_tracing_log')) {
         return;
       }
       $wpdb->suppress_errors(true);
-      $data = array_intersect_key($row, array_flip([
+      
+      // Only include non-PII fields (exclude user_id, user_agent, ip_address)
+      $allowed_fields = [
         'session_id','turn_id','prompt','response','error',
         'model_name','token_usage','truncated','language_code',
-        'timestamp','ip_address','user_agent','user_id','is_complete'
-      ]));
+        'timestamp','is_complete'
+      ];
+      $data = array_intersect_key($row, array_flip($allowed_fields));
+      
+      // Ensure required fields have defaults
       if (!isset($data['turn_id'])) $data['turn_id'] = 1;
       if (!isset($data['is_complete'])) $data['is_complete'] = 0;
+      
+      // Explicitly exclude PII fields (set to NULL even if provided)
+      unset($data['user_id']);
+      unset($data['user_agent']);
+      unset($data['ip_address']);
+      
       $wpdb->insert($table, $data);
     } catch (\Throwable $e) {
-      error_log('[dAIrect Chat] Trace insert failed: ' . $e->getMessage());
+      dairect_debug_log( 'Trace insert failed: ' . $e->getMessage() );
     } finally {
       if (isset($wpdb)) $wpdb->suppress_errors(false);
     }
   }
 }
+
+// ── Rolling purge (7-day retention window) ─────────────────────────────────
+
+function dairect_schedule_trace_purge(): void {
+    if ( ! wp_next_scheduled( 'dairect_trace_purge' ) ) {
+        wp_schedule_event( time(), 'daily', 'dairect_trace_purge' );
+    }
+}
+
+function dairect_unschedule_trace_purge(): void {
+    $ts = wp_next_scheduled( 'dairect_trace_purge' );
+    if ( $ts ) {
+        wp_unschedule_event( $ts, 'dairect_trace_purge' );
+    }
+}
+
+add_action( 'dairect_trace_purge', 'dairect_run_trace_purge' );
+
+function dairect_run_trace_purge(): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'dairect_chat_trace';
+
+    $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+    if ( $exists !== $table ) return;
+
+    $days = absint( DAIRECT_TRACE_RETENTION_DAYS );
+    $deleted = $wpdb->query(
+        "DELETE FROM {$table} WHERE timestamp < DATE_SUB(NOW(), INTERVAL {$days} DAY)"
+    );
+
+    dairect_debug_log( 'Trace purge: removed ' . (int) $deleted . ' rows older than ' . $days . ' days.' );
+}
+
+// Safety net for existing installs that never triggered the activation hook
+add_action( 'init', 'dairect_schedule_trace_purge' );
