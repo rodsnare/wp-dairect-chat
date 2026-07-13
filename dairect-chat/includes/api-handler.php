@@ -523,57 +523,53 @@ add_action( 'rest_api_init', 'dairect_register_rest_routes' );
  * AJAX bridge: admin tester + front-end widget → REST handler.
  */
 function dairect_ajax_bridge_to_rest() {
+    ob_start(); // capture any stray PHP notices / server output that would corrupt JSON
+
     check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
 
     $action = isset( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '(none)';
 
     if ( $action === 'dairect_chat_test' ) {
-        // Admin test panel.
         $prompt     = isset( $_POST['prompt'] ) ? sanitize_textarea_field( wp_unslash( $_POST['prompt'] ) ) : '';
         $session_id = 'admin-test';
         $turn_id    = 1;
     } else {
-        // Front-end widget / shortcode chat.
         $prompt     = isset( $_POST['message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['message'] ) ) : '';
         $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
         $turn_id    = 0;
     }
 
     if ( $prompt === '' ) {
-        wp_send_json(
-            array(
-                'success' => false,
-                'message' => 'Prompt is required.',
-                'data'    => array(),
-            )
+        $response = array(
+            'success' => false,
+            'message' => 'Prompt is required.',
+            'data'    => array(),
         );
-    }
+    } else {
+        $service = new Dairect_Gemini_Service();
+        $result  = $service->send_prompt( $prompt, $session_id, $turn_id );
 
-    $service = new Dairect_Gemini_Service();
-    $result  = $service->send_prompt( $prompt, $session_id, $turn_id );
-
-    if ( is_wp_error( $result ) ) {
-        wp_send_json(
-            array(
+        if ( is_wp_error( $result ) ) {
+            $response = array(
                 'success' => false,
                 'message' => $result->get_error_message(),
                 'data'    => $result->get_error_data(),
                 'code'    => $result->get_error_code(),
-            )
-        );
+            );
+        } else {
+            $response = array(
+                'success' => true,
+                'message' => $result['reply'],
+                'data'    => array(
+                    'reply' => $result['reply'],
+                    'raw'   => $result['raw'],
+                ),
+            );
+        }
     }
 
-    // Normalized success shape for both admin + front-end.
-    wp_send_json(
-        array(
-            'success' => true,
-            'message' => $result['reply'],
-            'data'    => array(
-                'reply' => $result['reply'],
-                'raw'   => $result['raw'],
-            ),
-        )
-    );
+    ob_end_clean(); // discard captured stray output before sending clean JSON
+    wp_send_json( $response );
 }
 
 /**
@@ -591,11 +587,38 @@ add_action( 'wp_ajax_dairect_chat', 'dairect_ajax_bridge_to_rest' );
  * Clear conversation history for a session (transient + fires on "Clear Chat").
  */
 function dairect_ajax_clear_chat() {
+    global $wpdb;
+    ob_start();
     check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
     $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
     if ( $session_id !== '' ) {
         delete_transient( 'dairect_chat_history_' . $session_id );
     }
+    if ( function_exists( 'dairect_tracing_log' ) ) {
+        // Place [SESSION CLEARED] after the last real turn so it sorts as the conversation's final event.
+        $next_turn_id = 0;
+        if ( $session_id !== '' ) {
+            $table = $wpdb->prefix . 'dairect_chat_trace';
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+            $max = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT MAX(CAST(turn_id AS UNSIGNED)) FROM `{$table}` WHERE session_id = %s",
+                    $session_id
+                )
+            );
+            if ( $max !== null && is_numeric( $max ) ) {
+                $next_turn_id = (int) $max + 1;
+            }
+        }
+        dairect_tracing_log( array(
+            'session_id'  => $session_id,
+            'turn_id'     => $next_turn_id,
+            'prompt'      => '[SESSION CLEARED]',
+            'response'    => '',
+            'is_complete' => 1,
+        ) );
+    }
+    ob_end_clean();
     wp_send_json( array( 'success' => true ) );
 }
 add_action( 'wp_ajax_dairect_chat_clear', 'dairect_ajax_clear_chat' );

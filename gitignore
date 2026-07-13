@@ -17,3 +17,6 @@ npm-debug.log*
 # Ignore temporary system files
 *.bak
 *.tmp
+
+# Ignore sensitive docs (contain API keys — never commit)
+docs/install-cheatsheet.md

@@ -75,9 +75,19 @@
 }
 
 /* ── Embedded widget controls ──────────────────────────────────────────────── */
-#dairect-chat-widget button {
+#dairect-chat-widget button:not(.dairect-mic-btn) {
   padding: 10px 14px;
   font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#chat-send {
+  background: var(--dairect-accent, #6366f1);
+  color: #fff;
+  border: none;
+}
+#chat-clear {
+  display: none !important;
 }
 input#chat-input {
   width: 100%;
@@ -220,6 +230,18 @@ input#chat-input {
   background: var(--dairect-accent, #6366f1) !important;
   color: #fff !important;
   border-color: var(--dairect-accent, #6366f1) !important;
+}
+#dairect-float-input-area #dairect-float-clear {
+  color: #4b5563 !important;
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  font-size: 15px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#dairect-float-input-area #dairect-float-clear:hover {
+  color: #111827 !important;
+  background-color: #e5e7eb !important;
 }
 
 /* ── Animations ────────────────────────────────────────────────────────────── */

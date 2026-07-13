@@ -4,6 +4,7 @@
 
     var STORAGE_KEY_SESSION       = 'dairect_chat_session_id';
     var STORAGE_KEY_FLOAT_SESSION = 'dairect_float_session_id';
+    var LAST_ACTIVE_SESSION_KEY   = 'dairect_last_active_session';
 
     function generateSessionId() {
         return 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -47,6 +48,26 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        function appendMessageHtml(html, cls) {
+            var msg = document.createElement('div');
+            msg.className = cls;
+            msg.innerHTML = html;
+            Array.prototype.forEach.call(msg.querySelectorAll('a'), function (a) {
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+            });
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showGreeting() {
+            var text = (chatBox.dataset && chatBox.dataset.greeting) || '';
+            if (!text && typeof DairectChatAjax !== 'undefined') {
+                text = DairectChatAjax.greeting || '';
+            }
+            if (text) appendMessageHtml(text, 'chat-ai');
+        }
+
         function errText(data, fallback) {
             if (!data) return fallback;
             if (typeof data === 'string') return data;
@@ -65,6 +86,7 @@
             input.value = '';
 
             sessionId = getOrCreateSession(sessionKey);
+            localStorage.setItem(LAST_ACTIVE_SESSION_KEY, sessionId);
 
             var params = new URLSearchParams();
             params.set('action', 'dairect_chat');
@@ -85,6 +107,7 @@
                 if (data && data.session_id) {
                     sessionId = data.session_id;
                     localStorage.setItem(sessionKey, sessionId);
+                    localStorage.setItem(LAST_ACTIVE_SESSION_KEY, sessionId);
                 }
 
                 if (res.ok && data && data.success) {
@@ -106,15 +129,19 @@
             if (e.key === 'Enter') sendMessage();
         });
 
+        showGreeting();
+
         if (clearBtn) {
             clearBtn.addEventListener('click', async function () {
                 chatBox.innerHTML = '';
+                input.value = '';
+                var oldSessionId = localStorage.getItem(LAST_ACTIVE_SESSION_KEY) || sessionId;
                 clearSession(sessionKey);
                 sessionId = getOrCreateSession(sessionKey);
                 var params = new URLSearchParams();
                 params.set('action', 'dairect_chat_clear');
                 params.set('nonce', DairectChatAjax.nonce);
-                params.set('session_id', sessionId);
+                params.set('session_id', oldSessionId);
                 try {
                     await fetch(DairectChatAjax.ajax_url, {
                         method: 'POST',
@@ -122,6 +149,7 @@
                         body: params.toString()
                     });
                 } catch (e) {}
+                showGreeting();
             });
         }
 

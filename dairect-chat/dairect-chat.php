@@ -3,7 +3,7 @@
 Plugin Name: dAIrect Chat
 Plugin URI: https://github.com/rodsnare/wp-dairect-chat
 Description: A lightweight Gemini-powered chat widget for WordPress with multi-turn conversation support.
-Version: 1.1.4
+Version: 2.0.11
 Author: Rod Snare
 Author URI: https://github.com/rodsnare
 License: GPLv2 or later
@@ -38,9 +38,9 @@ register_deactivation_hook( __FILE__, function () {
 if (!defined('DAIRECT_CHAT_VERSION')) {
     if (function_exists('get_file_data')) {
         $hdr = get_file_data(__FILE__, ['Version' => 'Version']);
-        define('DAIRECT_CHAT_VERSION', !empty($hdr['Version']) ? $hdr['Version'] : '1.1.4');
+        define('DAIRECT_CHAT_VERSION', !empty($hdr['Version']) ? $hdr['Version'] : '2.0.1');
     } else {
-        define('DAIRECT_CHAT_VERSION', '1.1.4');
+        define('DAIRECT_CHAT_VERSION', '2.0.11');
     }
 }
 
@@ -118,9 +118,12 @@ add_action('admin_menu', function() {
 });
 
 add_shortcode('dairect_chat_widget', function() {
+  $sc              = dairect_chat_get_settings();
+  $sc_greeting     = ( isset( $sc['greeting_enabled'] ) && $sc['greeting_enabled'] === '1' && ! empty( $sc['greeting_text'] ) )
+                     ? $sc['greeting_text'] : '';
   ob_start(); ?>
   <div id="dairect-chat-widget">
-    <div id="chat-messages"></div>
+    <div id="chat-messages"<?php echo $sc_greeting ? ' data-greeting="' . esc_attr( $sc_greeting ) . '"' : ''; ?>></div>
     <div class="dairect-input-wrap">
       <input type="text" id="chat-input" placeholder="<?php echo esc_attr__( 'Type a message…', 'dairect-chat' ); ?>" autocomplete="off" />
       <button id="chat-mic" class="dairect-mic-btn" title="<?php echo esc_attr__( 'Click to speak', 'dairect-chat' ); ?>" aria-label="<?php echo esc_attr__( 'Voice input', 'dairect-chat' ); ?>">
@@ -143,6 +146,9 @@ add_action( 'wp_footer', function () {
     $image_url    = ! empty( $settings['button_image_url'] ) ? esc_url( $settings['button_image_url'] ) : '';
     $drawer_width = isset( $settings['drawer_width'] ) ? max( 280, min( 800, intval( $settings['drawer_width'] ) ) ) : 380;
     $drawer_title = ! empty( $settings['drawer_title'] ) ? $settings['drawer_title'] : __( 'Chat', 'dairect-chat' );
+    $float_greeting  = ( isset( $settings['greeting_enabled'] ) && $settings['greeting_enabled'] === '1' && ! empty( $settings['greeting_text'] ) )
+                       ? $settings['greeting_text'] : '';
+    $show_clear_btn  = ! isset( $settings['show_clear_button'] ) || $settings['show_clear_button'] === '1';
     ?>
     <button id="dairect-float-btn"
             aria-label="<?php echo esc_attr__( 'Open chat', 'dairect-chat' ); ?>"
@@ -166,7 +172,7 @@ add_action( 'wp_footer', function () {
             <button id="dairect-float-close"
                     aria-label="<?php echo esc_attr__( 'Close chat', 'dairect-chat' ); ?>">&#10005;</button>
         </div>
-        <div id="dairect-float-messages"></div>
+        <div id="dairect-float-messages"<?php echo $float_greeting ? ' data-greeting="' . esc_attr( $float_greeting ) . '"' : ''; ?>></div>
         <div id="dairect-float-input-area">
             <div class="dairect-input-wrap">
                 <input type="text"
@@ -182,7 +188,9 @@ add_action( 'wp_footer', function () {
             </div>
             <div class="dairect-actions">
                 <button id="dairect-float-send"><?php echo esc_html__( 'Send', 'dairect-chat' ); ?></button>
+                <?php if ( $show_clear_btn ) : ?>
                 <button id="dairect-float-clear"><?php echo esc_html__( 'Clear', 'dairect-chat' ); ?></button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -198,9 +206,14 @@ add_action('wp_enqueue_scripts', function() use ($plugin_version) {
     true
   );
 
+  $s = dairect_chat_get_settings();
+
   wp_localize_script('dairect-chat-widget-js', 'DairectChatAjax', [
-    'ajax_url' => admin_url('admin-ajax.php'),
-    'nonce' => wp_create_nonce('dairect_chat_nonce')
+    'ajax_url'          => admin_url('admin-ajax.php'),
+    'nonce'             => wp_create_nonce('dairect_chat_nonce'),
+    'greeting'          => ( isset( $s['greeting_enabled'] ) && $s['greeting_enabled'] === '1' && ! empty( $s['greeting_text'] ) )
+                           ? $s['greeting_text'] : '',
+    'show_clear_button' => ( isset( $s['show_clear_button'] ) && $s['show_clear_button'] === '0' ) ? '0' : '1',
   ]);
 
   wp_enqueue_style(
@@ -211,7 +224,6 @@ add_action('wp_enqueue_scripts', function() use ($plugin_version) {
   );
 
   // Dynamic accent color — overrides the CSS variable default
-  $s      = dairect_chat_get_settings();
   $accent = ( ! empty( $s['accent_color'] ) && preg_match( '/^#[0-9a-f]{6}$/i', $s['accent_color'] ) )
               ? $s['accent_color'] : '#6366f1';
   wp_add_inline_style( 'dairect-chat-style-css', ':root{--dairect-accent:' . esc_attr( $accent ) . ';}' );

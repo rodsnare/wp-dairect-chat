@@ -3,7 +3,7 @@ Contributors: rsnare
 Tags: ai, chatbot, gemini, widget, llm  
 Requires at least: 6.0  
 Tested up to: 6.8  
-Stable tag: 1.1.3  
+Stable tag: 2.0.11  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,13 @@ Not yet, but future versions will support multiple providers.
 2. Front-end widget with configurable behavior and voice button
 
 == Changelog ==
+= 2.0.1 =
+* Floating drawer with animated open/close and button drop/spring return
+* Configurable drawer title, accent color picker, and Phoenix collector endpoint
+* Microphone button moved inside input field with improved toggle and error handling
+* Prompt tracing with Phoenix Cloud OTLP observability
+* System instructions focus warning modal
+
 = 1.1.3 =
 * First public GitHub release
 * System instruction injection and admin tester support

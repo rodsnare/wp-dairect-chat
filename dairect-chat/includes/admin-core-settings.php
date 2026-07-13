@@ -228,6 +228,62 @@ add_action('admin_init', function () {
     'dairect_widget_section'
   );
 
+  // Show Clear button
+  add_settings_field(
+    'show_clear_button',
+    __( 'Show Clear Button', 'dairect-chat' ),
+    function () use ( $get ) {
+      $val = (string) $get( 'show_clear_button', '1' );
+      ?>
+      <input type="hidden" name="dairect_chat_settings[show_clear_button]" value="0" />
+      <label>
+        <input type="checkbox"
+               name="dairect_chat_settings[show_clear_button]"
+               value="1" <?php checked( $val, '1' ); ?> />
+        <?php echo esc_html__( 'Show a "Clear" button so users can reset the conversation.', 'dairect-chat' ); ?>
+      </label>
+      <?php
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Greeting enabled
+  add_settings_field(
+    'greeting_enabled',
+    __( 'Initial Greeting', 'dairect-chat' ),
+    function () use ( $get ) {
+      $enabled = (string) $get( 'greeting_enabled', '0' );
+      ?>
+      <label>
+        <input type="checkbox"
+               name="dairect_chat_settings[greeting_enabled]"
+               value="1" <?php checked( $enabled, '1' ); ?> />
+        <?php echo esc_html__( 'Show a greeting message at the start of each chat session.', 'dairect-chat' ); ?>
+      </label>
+      <?php
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
+  // Greeting text
+  add_settings_field(
+    'greeting_text',
+    __( 'Greeting Text', 'dairect-chat' ),
+    function () use ( $get ) {
+      $val = (string) $get( 'greeting_text', '' );
+      echo '<textarea name="dairect_chat_settings[greeting_text]" rows="3" style="width:60%;">' .
+           esc_textarea( $val ) . '</textarea>';
+      echo '<p class="description">' .
+           esc_html__( 'Opening message shown as an AI bubble at the start of every session. You may include a link using plain HTML, e.g.:', 'dairect-chat' ) .
+           ' <code>&lt;a href="https://example.com" target="_blank"&gt;Click here&lt;/a&gt;</code>' .
+           '</p>';
+    },
+    $page,
+    'dairect_widget_section'
+  );
+
   // Accent color
   add_settings_field(
     'accent_color',
@@ -257,7 +313,7 @@ add_action('admin_init', function () {
         </div>
       </div>
       <p class="description" style="margin-top:6px;">
-        <?php echo esc_html__( 'Hex (#rrggbb) or rgb(r,g,b). Controls the floating button, drawer header, and Send button. Default: #6366f1.', 'dairect-chat' ); ?>
+        <?php echo esc_html__( 'Click the color swatch to pick, or type a hex value (#rrggbb). Click Save Changes below to apply.', 'dairect-chat' ); ?>
       </p>
       <?php
     },
@@ -301,7 +357,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (prevBar) prevBar.style.background = hex;
     }
 
-    picker.addEventListener('input', function() {
+    // 'change' fires once when the native picker closes; 'input' fires on every drag
+    // and can freeze the browser tab, so we use 'change' here.
+    picker.addEventListener('change', function() {
         applyColor(picker.value);
     });
 
@@ -391,6 +449,18 @@ function dairect_chat_sanitize_core_settings( $incoming ) {
     }
     if ( isset( $out['drawer_width'] ) ) {
         $out['drawer_width'] = (string) max( 280, min( 800, intval( $out['drawer_width'] ) ) );
+    }
+
+    // Clear button visibility
+    $out['show_clear_button'] = ! empty( $out['show_clear_button'] ) ? '1' : '0';
+
+    // Greeting fields
+    $out['greeting_enabled'] = ! empty( $out['greeting_enabled'] ) ? '1' : '0';
+    if ( isset( $out['greeting_text'] ) ) {
+        $out['greeting_text'] = wp_kses(
+            wp_unslash( $out['greeting_text'] ),
+            array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) )
+        );
     }
 
     return $out;
