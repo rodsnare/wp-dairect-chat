@@ -37,10 +37,14 @@
 /* ── Input wrapper (mic inside text field) ─────────────────────────────────── */
 .dairect-input-wrap {
   position: relative;
-  display: block;
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box;
   margin-bottom: 0;
 }
 .dairect-input-wrap input {
+  width: 100% !important;
+  box-sizing: border-box !important;
   padding-right: 40px; /* room for mic button */
 }
 
@@ -207,12 +211,15 @@ input#chat-input {
   margin-bottom: 8px;
 }
 #dairect-float-input {
-  width: 100%;
+  width: 100% !important;
+  min-width: 0 !important;
   padding: 10px;
+  padding-right: 40px;
   font-size: 15px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
+  max-width: none !important;
 }
 #dairect-float-input-area .dairect-actions {
   display: flex;

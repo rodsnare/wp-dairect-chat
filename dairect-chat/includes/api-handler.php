@@ -525,7 +525,12 @@ add_action( 'rest_api_init', 'dairect_register_rest_routes' );
 function dairect_ajax_bridge_to_rest() {
     ob_start(); // capture any stray PHP notices / server output that would corrupt JSON
 
-    check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
+    // Logged-in users: enforce nonce (CSRF protection for admin tester).
+    // Logged-out users: skip nonce — the nopriv action is already public, and caching
+    // plugins can bake a stale logged-in nonce into the page, breaking guest chat.
+    if ( is_user_logged_in() ) {
+        check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
+    }
 
     $action = isset( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '(none)';
 
@@ -582,6 +587,7 @@ add_action( 'wp_ajax_dairect_chat_send', 'dairect_ajax_bridge_to_rest' );
 add_action( 'wp_ajax_nopriv_dairect_chat_send', 'dairect_ajax_bridge_to_rest' );
 add_action( 'wp_ajax_dairect_chat_test', 'dairect_ajax_bridge_to_rest' );
 add_action( 'wp_ajax_dairect_chat', 'dairect_ajax_bridge_to_rest' );
+add_action( 'wp_ajax_nopriv_dairect_chat', 'dairect_ajax_bridge_to_rest' );
 
 /**
  * Clear conversation history for a session (transient + fires on "Clear Chat").
@@ -589,7 +595,9 @@ add_action( 'wp_ajax_dairect_chat', 'dairect_ajax_bridge_to_rest' );
 function dairect_ajax_clear_chat() {
     global $wpdb;
     ob_start();
-    check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
+    if ( is_user_logged_in() ) {
+        check_ajax_referer( 'dairect_chat_nonce', 'nonce' );
+    }
     $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
     if ( $session_id !== '' ) {
         delete_transient( 'dairect_chat_history_' . $session_id );

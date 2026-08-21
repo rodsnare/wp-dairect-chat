@@ -121,7 +121,12 @@ function dairect_run_trace_purge(): void {
     $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
     if ( $exists !== $table ) return;
 
-    $days = absint( DAIRECT_TRACE_RETENTION_DAYS );
+    $settings = function_exists( 'dairect_chat_get_settings' )
+        ? dairect_chat_get_settings()
+        : (array) get_option( 'dairect_chat_settings', array() );
+    $configured = isset( $settings['trace_retention_days'] ) ? (int) $settings['trace_retention_days'] : 0;
+    $days = in_array( $configured, array( 2, 7, 15, 30 ), true ) ? $configured : absint( DAIRECT_TRACE_RETENTION_DAYS );
+
     $deleted = $wpdb->query(
         "DELETE FROM {$table} WHERE timestamp < DATE_SUB(NOW(), INTERVAL {$days} DAY)"
     );

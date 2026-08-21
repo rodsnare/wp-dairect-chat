@@ -35,12 +35,21 @@ add_action('admin_init', function () {
     'dairect_tracing_enabled',
     __('Enable Prompt Tracing', 'dairect-chat'),
     function () {
+      global $wpdb;
       $opts = function_exists('dairect_chat_get_settings')
         ? dairect_chat_get_settings()
         : (array) get_option('dairect_chat_settings', []);
 
-      $enabled = isset($opts['dairect_tracing_enabled']) ? (string) $opts['dairect_tracing_enabled'] : '0';
+      $enabled     = isset($opts['dairect_tracing_enabled'])    ? (string) $opts['dairect_tracing_enabled']    : '0';
       $initialized = isset($opts['dairect_tracing_initialized']) ? (string) $opts['dairect_tracing_initialized'] : '0';
+
+      // Last trace timestamp for quick health check
+      $last_trace = '';
+      $table = $wpdb->prefix . 'dairect_chat_trace';
+      $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+      if ( $exists === $table ) {
+          $last_trace = $wpdb->get_var( "SELECT MAX(timestamp) FROM {$table}" );
+      }
       ?>
       <label>
         <input type="checkbox"
@@ -50,10 +59,43 @@ add_action('admin_init', function () {
       </label>
       <p class="description" style="margin-top:6px;">
         <?php
-          echo ($initialized === '1')
-            ? esc_html__('Tracing has been initialized.', 'dairect-chat')
-            : esc_html__('Tracing has not been initialized yet.', 'dairect-chat');
+          if ( $last_trace ) {
+              echo esc_html__( 'Last trace recorded: ', 'dairect-chat' );
+              echo '<strong>' . esc_html( $last_trace ) . '</strong>';
+          } elseif ( $initialized === '1' ) {
+              echo esc_html__( 'Tracing initialized — no traces recorded yet.', 'dairect-chat' );
+          } else {
+              echo esc_html__( 'Tracing has not been initialized yet.', 'dairect-chat' );
+          }
         ?>
+      </p>
+      <?php
+    },
+    $page,
+    'dairect_tracing_section'
+  );
+
+  // Retention period dropdown
+  add_settings_field(
+    'trace_retention_days',
+    __( 'Retention Period', 'dairect-chat' ),
+    function () {
+      $opts = function_exists('dairect_chat_get_settings')
+        ? dairect_chat_get_settings()
+        : (array) get_option('dairect_chat_settings', []);
+      $val = isset( $opts['trace_retention_days'] ) ? (int) $opts['trace_retention_days'] : 7;
+      if ( ! in_array( $val, array( 2, 7, 15, 30 ), true ) ) $val = 7;
+      $choices = array( 2 => '2 days', 7 => '7 days', 15 => '15 days', 30 => '30 days' );
+      ?>
+      <select name="dairect_chat_settings[trace_retention_days]">
+        <?php foreach ( $choices as $days => $label ) : ?>
+        <option value="<?php echo esc_attr( $days ); ?>" <?php selected( $val, $days ); ?>>
+          <?php echo esc_html( $label ); ?>
+        </option>
+        <?php endforeach; ?>
+      </select>
+      <p class="description">
+        <?php echo esc_html__( 'Traces older than this are automatically deleted by a daily cleanup job. Default: 7 days.', 'dairect-chat' ); ?>
       </p>
       <?php
     },
@@ -115,7 +157,7 @@ add_action('admin_init', function () {
       
       $today = gmdate('Y-m-d');
       $start_date = !empty($date_range['min']) ? gmdate('Y-m-d', strtotime($date_range['min'])) : $today;
-      $end_date = !empty($date_range['max']) ? gmdate('Y-m-d', strtotime($date_range['max'])) : $today;
+      $end_date   = $today;
 
       // Set min to earliest trace date (or a safe past date), no max restriction
       // This allows selecting any date from the earliest data up to today and beyond

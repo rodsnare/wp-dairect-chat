@@ -182,24 +182,42 @@ function dairect_phoenix_send( array $data ): void {
     $pb_body  = dairect_otlp_encode( $trace_id_hex, $span_id_hex, $start_ns, $end_ns, 'chat', $kv_attrs, $project );
     $endpoint = dairect_phoenix_get_collector_endpoint() . '/v1/traces';
 
+    dairect_debug_log( 'Phoenix: queuing live send → ' . $endpoint );
+
     // Defer to PHP shutdown so the AJAX response reaches the browser first.
     // Direct cURL with HTTP/2 — WordPress HTTP API forces HTTP/1.1 which GFE rejects.
-    register_shutdown_function( static function () use ( $pb_body, $endpoint, $api_key ) {
+    // Use file_put_contents in the shutdown callback — dairect_debug_log() can't write
+    // to debug.log after WordPress's error handler is cleaned up at shutdown.
+    $debug    = defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG;
+    $log_path = $debug && defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR . '/debug.log' : '';
+    register_shutdown_function( static function () use ( $pb_body, $endpoint, $api_key, $log_path ) {
         $ch = curl_init( $endpoint );
         curl_setopt_array( $ch, array(
-            CURLOPT_POST           => true,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
             CURLOPT_POSTFIELDS     => $pb_body,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 5,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_HTTP_VERSION   => defined( 'CURL_HTTP_VERSION_2TLS' ) ? CURL_HTTP_VERSION_2TLS : CURL_HTTP_VERSION_2_0,
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
             CURLOPT_HTTPHEADER     => array(
                 'Content-Type: application/x-protobuf',
                 'Authorization: Bearer ' . trim( $api_key ),
+                'Accept-Encoding: gzip, deflate',
+                'Accept: */*',
+                'Connection: keep-alive',
                 'Expect:',
+                // Phoenix Cloud's GFE routes OTLP requests by User-Agent — only python-requests/* reaches the API handler
+                'User-Agent: python-requests/2.31.0',
             ),
         ) );
-        curl_exec( $ch );
+        $body = curl_exec( $ch );
+        $code = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+        $err  = curl_error( $ch );
         curl_close( $ch );
+        if ( $log_path !== '' ) {
+            $body_str = ( $body !== false && $body !== '' ) ? ' body: ' . substr( $body, 0, 200 ) : ' (empty body)';
+            $msg = $err !== '' ? 'Phoenix live send cURL error: ' . $err : 'Phoenix live send → HTTP ' . $code . $body_str;
+            @file_put_contents( $log_path, '[' . gmdate( 'd-M-Y H:i:s' ) . ' UTC] [dAIrect Chat] ' . $msg . "\n", FILE_APPEND | LOCK_EX );
+        }
     } );
 }

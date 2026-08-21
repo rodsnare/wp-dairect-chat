@@ -420,6 +420,12 @@ function dairect_chat_sanitize_core_settings( $incoming ) {
         $out['dairect_tracing_initialized'] = '0';
     }
 
+    // Trace retention period — must be one of the allowed values
+    if ( isset( $out['trace_retention_days'] ) ) {
+        $days = (int) $out['trace_retention_days'];
+        $out['trace_retention_days'] = in_array( $days, array( 2, 7, 15, 30 ), true ) ? (string) $days : '7';
+    }
+
     // Phoenix observability fields
     $out['phoenix_enabled'] = ! empty( $out['phoenix_enabled'] ) ? '1' : '0';
     if ( isset( $out['phoenix_project_name'] ) ) {

@@ -3,7 +3,7 @@
 Plugin Name: dAIrect Chat
 Plugin URI: https://github.com/rodsnare/wp-dairect-chat
 Description: A lightweight Gemini-powered chat widget for WordPress with multi-turn conversation support.
-Version: 2.0.11
+Version: 2.0.30
 Author: Rod Snare
 Author URI: https://github.com/rodsnare
 License: GPLv2 or later
@@ -40,7 +40,7 @@ if (!defined('DAIRECT_CHAT_VERSION')) {
         $hdr = get_file_data(__FILE__, ['Version' => 'Version']);
         define('DAIRECT_CHAT_VERSION', !empty($hdr['Version']) ? $hdr['Version'] : '2.0.1');
     } else {
-        define('DAIRECT_CHAT_VERSION', '2.0.11');
+        define('DAIRECT_CHAT_VERSION', '2.0.30');
     }
 }
 
