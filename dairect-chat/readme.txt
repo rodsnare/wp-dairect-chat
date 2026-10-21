@@ -3,7 +3,7 @@ Contributors: rsnare
 Tags: ai, chatbot, gemini, widget, llm  
 Requires at least: 6.0  
 Tested up to: 6.8  
-Stable tag: 2.0.30  
+Stable tag: 2.0.31  
 License: GPLv2 or later  
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Not yet, but future versions will support multiple providers.
 2. Front-end widget with configurable behavior and voice button
 
 == Changelog ==
+= 2.0.31 =
+* Security: the Phoenix connection test no longer writes to the PHP error log unless WP_DEBUG is on, and the Phoenix API key is removed from everything it logs or shows in the test results
+
 = 2.0.30 =
 * Fix: use User-Agent: python-requests/2.31.0 for all Phoenix OTLP requests — Phoenix Cloud's GFE routes to its OTLP API handler only for python-requests/* user agents; any other UA is routed to the web app and redirected to login (HTTP 302)
 

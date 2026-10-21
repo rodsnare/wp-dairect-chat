@@ -132,6 +132,25 @@ add_action( 'admin_init', function () {
 /**
  * AJAX: connectivity diagnostic + test trace to Phoenix.
  */
+/**
+ * The connection test's request headers carry "Authorization: Bearer <key>"; strip the key
+ * from anything it logs or returns to the browser.
+ */
+function dairect_phoenix_redact( $text, $api_key ) {
+    $text = (string) $text;
+    $key  = trim( (string) $api_key );
+    if ( $key !== '' ) {
+        $text = str_replace( $key, '[redacted]', $text );
+    }
+    return (string) preg_replace( '/(Authorization:\s*Bearer\s+)\S+/i', '$1[redacted]', $text );
+}
+
+function dairect_phoenix_test_log( $message, $api_key ) {
+    if ( function_exists( 'dairect_debug_log' ) ) {
+        dairect_debug_log( dairect_phoenix_redact( $message, $api_key ) );
+    }
+}
+
 function dairect_ajax_test_phoenix() {
     ob_start();
     try {
@@ -241,13 +260,13 @@ function dairect_ajax_test_phoenix() {
             $body_display = ( $resp_body !== false && $resp_body !== '' )
                 ? substr( $resp_body, 0, 500 )
                 : '(empty response body)';
-            error_log( 'dAIrect Phoenix OTLP ' . $url . ' → HTTP ' . $code . ': ' . $body_display );
+            dairect_phoenix_test_log( 'dAIrect Phoenix OTLP ' . $url . ' → HTTP ' . $code . ': ' . $body_display, $api_key );
             return array(
                 'status'       => $code,
                 'body'         => $body_display,
                 'success'      => ( $code >= 200 && $code < 300 ),
                 'method'       => 'curl_direct',
-                'sent_headers' => $sent,
+                'sent_headers' => dairect_phoenix_redact( $sent, $api_key ),
             );
         };
 
@@ -315,14 +334,14 @@ function dairect_ajax_test_phoenix() {
             $resp_hdr_raw  = ( is_string( $raw ) && $hdr_size > 0 ) ? substr( $raw, 0, $hdr_size ) : '';
             $resp_body_raw = ( is_string( $raw ) && $hdr_size > 0 ) ? substr( $raw, $hdr_size ) : '';
             // Log to debug.log so we get it even if JS rendering truncates
-            error_log( 'dAIrect Phoenix verbose sent: ' . $sent );
-            error_log( 'dAIrect Phoenix verbose resp-hdr: ' . $resp_hdr_raw );
-            error_log( 'dAIrect Phoenix verbose body: ' . substr( $resp_body_raw, 0, 500 ) );
+            dairect_phoenix_test_log( 'dAIrect Phoenix verbose sent: ' . $sent, $api_key );
+            dairect_phoenix_test_log( 'dAIrect Phoenix verbose resp-hdr: ' . $resp_hdr_raw, $api_key );
+            dairect_phoenix_test_log( 'dAIrect Phoenix verbose body: ' . substr( $resp_body_raw, 0, 500 ), $api_key );
             if ( $verbose_out !== '' ) {
-                error_log( 'dAIrect Phoenix cURL verbose: ' . substr( $verbose_out, 0, 5000 ) );
+                dairect_phoenix_test_log( 'dAIrect Phoenix cURL verbose: ' . substr( $verbose_out, 0, 5000 ), $api_key );
             }
             if ( $curl_err !== '' ) {
-                return array( 'error' => $curl_err, 'verbose' => $verbose_out );
+                return array( 'error' => $curl_err, 'verbose' => dairect_phoenix_redact( $verbose_out, $api_key ) );
             }
             $curl_info = function_exists( 'curl_version' ) ? curl_version() : array();
             return array(
@@ -330,10 +349,10 @@ function dairect_ajax_test_phoenix() {
                 'body'         => ( $resp_body_raw !== '' ) ? substr( $resp_body_raw, 0, 300 ) : '(empty body)',
                 'success'      => ( $code >= 200 && $code < 300 ),
                 'method'       => 'curl_verbose',
-                'sent_headers' => $sent,
-                'resp_headers' => $resp_hdr_raw,
+                'sent_headers' => dairect_phoenix_redact( $sent, $api_key ),
+                'resp_headers' => dairect_phoenix_redact( $resp_hdr_raw, $api_key ),
                 'primary_ip'   => $primary_ip,
-                'verbose'      => $verbose_out,
+                'verbose'      => dairect_phoenix_redact( $verbose_out, $api_key ),
                 'curl_ver'     => ( isset( $curl_info['version'] ) ? $curl_info['version'] : '?' )
                                 . ' SSL:' . ( isset( $curl_info['ssl_version'] ) ? $curl_info['ssl_version'] : '?' ),
             );
@@ -360,7 +379,7 @@ function dairect_ajax_test_phoenix() {
             $code         = (int) wp_remote_retrieve_response_code( $response );
             $body         = wp_remote_retrieve_body( $response );
             $body_display = ( $body !== '' ) ? substr( $body, 0, 500 ) : '(empty response body)';
-            error_log( 'dAIrect Phoenix OTLP/wp ' . $url . ' → HTTP ' . $code . ': ' . $body_display );
+            dairect_phoenix_test_log( 'dAIrect Phoenix OTLP/wp ' . $url . ' → HTTP ' . $code . ': ' . $body_display, $api_key );
             return array(
                 'status'  => $code,
                 'body'    => $body_display,
@@ -432,13 +451,13 @@ function dairect_ajax_test_phoenix() {
             $body_display = ( $resp_body !== false && $resp_body !== '' )
                 ? substr( $resp_body, 0, 500 )
                 : '(empty response body)';
-            error_log( 'dAIrect Phoenix OTLP/JSON ' . $endpoint . ' → HTTP ' . $code . ': ' . $body_display );
+            dairect_phoenix_test_log( 'dAIrect Phoenix OTLP/JSON ' . $endpoint . ' → HTTP ' . $code . ': ' . $body_display, $api_key );
             return array(
                 'status'       => $code,
                 'body'         => $body_display,
                 'success'      => ( $code >= 200 && $code < 300 ),
                 'method'       => 'curl_json',
-                'sent_headers' => $sent,
+                'sent_headers' => dairect_phoenix_redact( $sent, $api_key ),
             );
         } )();
     }
